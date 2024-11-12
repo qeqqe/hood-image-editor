@@ -136,7 +136,17 @@ export default function ImageProcessor() {
     multiple: false,
   });
 
-  const handleProcess = async (endpoint: string, data = {}) => {
+  interface ProcessData {
+    format?: string;
+    width?: string;
+    height?: string;
+    angle?: string;
+    effect?: string;
+    value?: string;
+    [key: string]: string | undefined;
+  }
+
+  const handleProcess = async (endpoint: string, data: ProcessData = {}) => {
     if (!file && !currentBuffer) {
       showNotification("Please select an image first", true);
       return;
@@ -145,44 +155,82 @@ export default function ImageProcessor() {
     setProcessing(true);
     const formData = new FormData();
 
-    if (currentBuffer) {
-      formData.append("image", currentBuffer);
-    } else {
-      formData.append("image", file as File);
-    }
-
-    console.log(`Processing ${endpoint}:`, { file, data });
-
-    Object.entries(data).forEach(([key, value]: [string, any]) => {
-      formData.append(key, value.toString());
-    });
-
     try {
-      const response = await axios.post(
-        `http://localhost:3001/${endpoint}`,
-        formData,
-        {
-          responseType: "blob",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          onUploadProgress: (progressEvent) => {
-            console.log("Upload progress:", progressEvent);
-          },
-        }
-      );
+      if (endpoint === "convert") {
+        // Always use the original file for conversion
+        formData.append("image", file as File);
+        formData.append("format", data.format as string);
 
-      setCurrentBuffer(response.data);
-      const url = URL.createObjectURL(response.data);
-      setPreview(url);
-      showNotification("Image processed successfully");
+        const response = await axios.post(
+          `http://localhost:3001/${endpoint}`,
+          formData,
+          {
+            responseType: "blob",
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        // Create blob with the correct type
+        const processedBlob = new Blob([response.data], {
+          type: `image/${data.format}`,
+        });
+
+        // Create download URL
+        const url = URL.createObjectURL(processedBlob);
+
+        // Force download instead of preview for conversions
+        const link = document.createElement("a");
+        link.href = url;
+        const filename = file?.name?.split(".")[0] || "converted";
+        link.download = `${filename}.${data.format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showNotification(
+          `Image converted to ${
+            data.format?.toUpperCase() || "unknown format"
+          } successfully`
+        );
+      } else {
+        // Handle other operations as before
+        formData.append("image", currentBuffer || (file as File));
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== undefined) {
+            formData.append(key, value.toString());
+          }
+        });
+
+        const response = await axios.post(
+          `http://localhost:3001/${endpoint}`,
+          formData,
+          {
+            responseType: "blob",
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        const processedBlob = new Blob([response.data], {
+          type: file?.type || "image/jpeg",
+        });
+
+        setCurrentBuffer(processedBlob);
+        const url = URL.createObjectURL(processedBlob);
+        setPreview(url);
+      }
+
+      showNotification(`Image ${endpoint} successful`);
     } catch (error: any) {
-      console.error("Processing error:", error);
-      const errorMessage =
-        error.response?.data?.error ||
-        error.message ||
-        "Failed to process image";
-      showNotification(errorMessage, true);
+      console.error(`${endpoint} error:`, error);
+      showNotification(
+        error.response?.data?.error || "Processing failed",
+        true
+      );
     } finally {
       setProcessing(false);
     }

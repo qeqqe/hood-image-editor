@@ -94,38 +94,68 @@ app.post("/resize", upload.single("image"), async (req, res) => {
 
 app.post("/convert", upload.single("image"), async (req, res) => {
   try {
-    const { format, quality } = req.body;
+    const { format } = req.body;
     if (!req.file) {
       return res.status(400).json({ error: "No image file provided" });
     }
 
-    const targetFormat = format.toLowerCase();
-    if (!FORMAT_OPTIONS[targetFormat]) {
-      return res.status(400).json({
-        error: `Invalid format. Allowed formats: ${Object.keys(
-          FORMAT_OPTIONS
-        ).join(", ")}`,
-      });
+    const targetFormat = format?.toLowerCase();
+    if (!ALLOWED_FORMATS.includes(targetFormat)) {
+      return res.status(400).json({ error: `Unsupported format: ${format}` });
     }
 
-    const { pipeline } = await validateAndProcessImage(req.file.buffer);
-    const options = {
-      ...FORMAT_OPTIONS[targetFormat],
-      quality: quality
-        ? parseInt(quality)
-        : FORMAT_OPTIONS[targetFormat].quality,
-    };
+    // Get original filename without extension
+    const originalName = req.file.originalname.split(".")[0];
 
-    const convertedImage = await pipeline
-      .toFormat(targetFormat, options)
+    const imageBuffer = await sharp(req.file.buffer)
+      .toFormat(targetFormat, FORMAT_OPTIONS[targetFormat] || {})
       .toBuffer();
 
-    res.type(`image/${targetFormat}`).send(convertedImage);
+    // Set proper headers for file download
+    res.set({
+      "Content-Type": `image/${targetFormat}`,
+      "Content-Disposition": `attachment; filename=${originalName}.${targetFormat}`,
+      "Content-Length": imageBuffer.length,
+    });
+
+    res.send(imageBuffer);
   } catch (err) {
-    console.error("Error processing image:", err);
-    res.status(500).json({ error: err.message || "Image processing failed" });
+    console.error("Conversion error:", err);
+    res.status(500).json({ error: "Failed to convert image: " + err.message });
   }
 });
+
+// app.post("/convert", upload.single("image"), async (req, res) => {
+//   try {
+//     const { format } = req.body;
+//     if (!req.file) {
+//       return res.status(400).json({ error: "No image file provided" });
+//     }
+
+//     const targetFormat = format?.toLowerCase();
+//     if (!ALLOWED_FORMATS.includes(targetFormat)) {
+//       return res.status(400).json({ error: `Unsupported format: ${format}` });
+//     }
+
+//     const imageBuffer = await sharp(req.file.buffer)
+//       .toFormat(targetFormat, {
+//         quality: 100,
+//         chromaSubsampling: "4:4:4",
+//         force: true,
+//       })
+//       .toBuffer();
+
+//     res.set({
+//       "Content-Type": `image/${targetFormat}`,
+//       "Content-Disposition": `attachment; filename=converted.${targetFormat}`,
+//     });
+
+//     res.send(imageBuffer);
+//   } catch (err) {
+//     console.error("Conversion error:", err);
+//     res.status(500).json({ error: "Failed to convert image: " + err.message });
+//   }
+// });
 
 app.post("/optimize", upload.single("image"), async (req, res) => {
   try {
