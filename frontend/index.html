@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Image Resizer</title>
+  </head>
+  <body>
+    <form id="uploadForm">
+      <input type="file" id="image" accept="image/*" required />
+      <input type="number" id="width" placeholder="Width" required />
+      <input type="number" id="height" placeholder="Height" required />
+      <button type="submit">Resize Image</button>
+    </form>
+    <img id="result" style="margin-top: 20px" />
+
+    <script>
+      document.getElementById("uploadForm").onsubmit = async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData();
+        formData.append("image", document.getElementById("image").files[0]);
+        formData.append("width", document.getElementById("width").value);
+        formData.append("height", document.getElementById("height").value);
+
+        try {
+          const response = await fetch("http://localhost:3001/resize", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            const blob = await response.blob();
+            document.getElementById("result").src = URL.createObjectURL(blob);
+          } else {
+            alert("Error resizing image");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Error processing request");
+        }
+      };
+    </script>
+  </body>
+</html>
