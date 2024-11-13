@@ -104,14 +104,12 @@ app.post("/convert", upload.single("image"), async (req, res) => {
       return res.status(400).json({ error: `Unsupported format: ${format}` });
     }
 
-    // Get original filename without extension
     const originalName = req.file.originalname.split(".")[0];
 
     const imageBuffer = await sharp(req.file.buffer)
       .toFormat(targetFormat, FORMAT_OPTIONS[targetFormat] || {})
       .toBuffer();
 
-    // Set proper headers for file download
     res.set({
       "Content-Type": `image/${targetFormat}`,
       "Content-Disposition": `attachment; filename=${originalName}.${targetFormat}`,
@@ -243,7 +241,6 @@ app.post("/effects", upload.single("image"), async (req, res) => {
         pipeline.normalize();
         break;
       case "median":
-        // Noise reduction
         pipeline.median(parseInt(value) || 3);
         break;
       default:

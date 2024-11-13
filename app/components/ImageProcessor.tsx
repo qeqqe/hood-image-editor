@@ -157,7 +157,6 @@ export default function ImageProcessor() {
 
     try {
       if (endpoint === "convert") {
-        // Always use the original file for conversion
         formData.append("image", file as File);
         formData.append("format", data.format as string);
 
@@ -172,15 +171,12 @@ export default function ImageProcessor() {
           }
         );
 
-        // Create blob with the correct type
         const processedBlob = new Blob([response.data], {
           type: `image/${data.format}`,
         });
 
-        // Create download URL
         const url = URL.createObjectURL(processedBlob);
 
-        // Force download instead of preview for conversions
         const link = document.createElement("a");
         link.href = url;
         const filename = file?.name?.split(".")[0] || "converted";
